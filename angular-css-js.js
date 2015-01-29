@@ -35,7 +35,7 @@
       weight: 0
     };
 
-    this.$get = ['$rootScope','$injector','$window','$timeout','$compile','$http','$filter','$log', 
+    this.$get = ['$rootScope','$injector','$window','$timeout','$compile','$http','$filter','$log',
                 function $get($rootScope, $injector, $window, $timeout, $compile, $http, $filter, $log) {
 
       var $css = {};
@@ -48,7 +48,7 @@
 
       // Parse all directives
       angular.forEach($directives, function (directive, key) {
-        if (directive.hasOwnProperty('css')) $directives[key] = parse(directive.css); 
+        if (directive.hasOwnProperty('css')) $directives[key] = parse(directive.css);
       });
 
       // Add stylesheets to scope
@@ -66,7 +66,7 @@
       // States event listener ($state required)
       $rootScope.$on('$stateChangeStart', $stateEventListener);
 
-      /** 
+      /**
        * Listen for directive add event in order to add stylesheet(s)
        **/
       function $directiveAddEventListener(event, directive, scope) {
@@ -74,7 +74,7 @@
         if (scope && directive.hasOwnProperty('css')) $css.bind([parse(directive.css)], scope);
       }
 
-      /** 
+      /**
        * Listen for route change event and add/remove stylesheet(s)
        **/
       function $routeEventListener(event, current, prev) {
@@ -84,7 +84,7 @@
         if (current) $css.add($css.getFromRoute(current));
       }
 
-      /** 
+      /**
        * Listen for state change event and add/remove stylesheet(s)
        **/
       function $stateEventListener(event, current, params, prev) {
@@ -104,7 +104,7 @@
           obj = angular.extend({
             href: obj
           }, options);
-        } 
+        }
         // Array of strings syntax
         if (angular.isArray(obj) && angular.isString(obj[0])) {
           angular.forEach(obj, function (item) {
@@ -112,7 +112,7 @@
               href: item
             }, options);
           });
-        } 
+        }
         // Object syntax
         if (angular.isObject(obj) && !angular.isArray(obj)) {
           obj = angular.extend(obj, options);
@@ -133,7 +133,7 @@
         if (!stylesheet) return $log.error('No stylesheets provided');
         var queryString = '?cache=';
         // Append query string for bust cache only once
-        if (stylesheet.href.indexOf(queryString) === -1) 
+        if (stylesheet.href.indexOf(queryString) === -1)
           stylesheet.href = stylesheet.href + (stylesheet.bustCache ? queryString + (new Date().getTime()) : '');
       }
 
@@ -144,7 +144,7 @@
         if (!array || !prop) return $log.error('filterBy: missing array or property');
         return $filter('filter')(array, function (item) {
           return item[prop];
-        }); 
+        });
       }
 
       /**
@@ -182,7 +182,7 @@
       function removeViaMediaQuery(stylesheet) {
         if (!stylesheet) return $log.error('No stylesheet provided');
         // Remove media query listener
-        if ($rootScope && angular.isDefined(mediaQuery) 
+        if ($rootScope && angular.isDefined(mediaQuery)
           && mediaQuery[stylesheet.href]
           && angular.isDefined(mediaQueryListener)) {
           mediaQuery[stylesheet.href].removeListener(mediaQueryListener[stylesheet.href]);
@@ -196,10 +196,10 @@
         if (!stylesheet) return $log.error('No stylesheet provided');
         return !!(
           // Check for media query setting
-          stylesheet.media 
+          stylesheet.media
           // Check for media queries to be ignored
           && (mediaQueriesToIgnore.indexOf(stylesheet.media) === -1)
-          // Check for matchMedia support 
+          // Check for matchMedia support
           && $window.matchMedia
         );
       }
@@ -269,7 +269,7 @@
               });
             // For single stylesheets
           } else result.push(parse(state.css));
-        }            
+        }
         return result;
       };
 
@@ -311,7 +311,7 @@
           $http.get(stylesheet.href)
             .success(function (response) {
               $log.debug('preload response: ' + response);
-              if (stylesheets.length === (index + 1) && angular.isFunction(callback)) 
+              if (stylesheets.length === (index + 1) && angular.isFunction(callback))
                 callback(stylesheets);
             })
             .error(function (response) {
@@ -404,6 +404,387 @@
 
   }]);
 
+  // Provider
+  angularCSS.provider('$js', [function $jsProvider() {
+
+    // Defaults - default options that can be overridden from application config
+    var defaults = this.defaults = {
+      element: 'script',
+      type: 'text/javascript',
+      container: 'head',
+      method: 'append',
+      weight: 0
+    };
+
+    this.$get = ['$rootScope','$injector','$window','$timeout','$compile','$http','$filter','$log',
+      function $get($rootScope, $injector, $window, $timeout, $compile, $http, $filter, $log) {
+
+        var $js = {};
+
+        var template = '<script ng-repeat="javascript in javascripts track by $index | orderBy: \'weight\' " type="{{ javascript.type }}" ng-href="{{ javascript.href }}"></script>';
+
+        // Variables - default options that can be overridden from application config
+        var mediaQuery = {}, mediaQueryListener = {}, mediaQueriesToIgnore = ['print'], options = angular.extend({}, defaults),
+          container = angular.element(document.querySelector ? document.querySelector(options.container) : document.getElementsByTagName(options.container)[0]);
+
+        // Parse all directives
+        angular.forEach($directives, function (directive, key) {
+          if (directive.hasOwnProperty('js')) $directives[key] = parse(directive.js);
+        });
+
+        // Add javascripts to scope
+        $rootScope.javascripts = [];
+
+        // Adds compiled link tags to container element
+        container[options.method]($compile(template)($rootScope));
+
+        // Directive event listener (emulated internally)
+        $rootScope.$on('$directiveAdd', $directiveAddEventListener);
+
+        // Routes event listener ($route required)
+        $rootScope.$on('$routeChangeStart', $routeEventListener);
+
+        // States event listener ($state required)
+        $rootScope.$on('$stateChangeStart', $stateEventListener);
+
+        /**
+         * Listen for directive add event in order to add javascript(s)
+         **/
+        function $directiveAddEventListener(event, directive, scope) {
+          // Binds directive's js
+          if (scope && directive.hasOwnProperty('js')) $js.bind([parse(directive.js)], scope);
+        }
+
+        /**
+         * Listen for route change event and add/remove javascript(s)
+         **/
+        function $routeEventListener(event, current, prev) {
+          // Removes previously added js rules
+          if (prev) $js.remove($js.getFromRoute(prev));
+          // Adds current js rules
+          if (current) $js.add($js.getFromRoute(current));
+        }
+
+        /**
+         * Listen for state change event and add/remove javascript(s)
+         **/
+        function $stateEventListener(event, current, params, prev) {
+          // Removes previously added js rules
+          if (prev) $js.remove($js.getFromState(prev));
+          // Adds current js rules
+          if (current) $js.add($js.getFromState(current));
+        }
+
+        /**
+         * Parse: returns array with full all object based on defaults
+         **/
+        function parse(obj) {
+          if (!obj) return;
+          // String syntax
+          if (angular.isString(obj)) {
+            obj = angular.extend({
+              href: obj
+            }, options);
+          }
+          // Array of strings syntax
+          if (angular.isArray(obj) && angular.isString(obj[0])) {
+            angular.forEach(obj, function (item) {
+              obj = angular.extend({
+                href: item
+              }, options);
+            });
+          }
+          // Object syntax
+          if (angular.isObject(obj) && !angular.isArray(obj)) {
+            obj = angular.extend(obj, options);
+          }
+          // Array of objects syntax
+          if (angular.isArray(obj) && angular.isObject(obj[0])) {
+            angular.forEach(obj, function (item) {
+              obj = angular.extend(item, options);
+            });
+          }
+          return obj;
+        }
+
+        /**
+         * Bust Cache
+         **/
+        function bustCache(javascript) {
+          if (!javascript) return $log.error('No javascripts provided');
+          var queryString = '?cache=';
+          // Append query string for bust cache only once
+          if (javascript.href.indexOf(queryString) === -1)
+            javascript.href = javascript.href + (javascript.bustCache ? queryString + (new Date().getTime()) : '');
+        }
+
+        /**
+         * Filter By: returns an array of routes based on a property option
+         **/
+        function filterBy(array, prop) {
+          if (!array || !prop) return $log.error('filterBy: missing array or property');
+          return $filter('filter')(array, function (item) {
+            return item[prop];
+          });
+        }
+
+        /**
+         * Add Media Query
+         **/
+        function addViaMediaQuery(javascript) {
+          if (!javascript) return $log.error('No javascript provided');
+          // Media query object
+          mediaQuery[javascript.href] = $window.matchMedia(javascript.media);
+          // Media Query Listener function
+          mediaQueryListener[javascript.href] = function(mediaQuery) {
+            // Trigger digest
+            $timeout(function () {
+              if (mediaQuery.matches) {
+                // Add javascript
+                $rootScope.javascripts.push(javascript);
+              } else {
+                var index = $rootScope.javascripts.indexOf($filter('filter')($rootScope.javascripts, {
+                  href: javascript.href
+                })[0]);
+                // Remove javascript
+                if (index !== -1) $rootScope.javascripts.splice(index, 1);
+              }
+            });
+          }
+          // Listen for media query changes
+          mediaQuery[javascript.href].addListener(mediaQueryListener[javascript.href]);
+          // Invoke first media query check
+          mediaQueryListener[javascript.href](mediaQuery[javascript.href]);
+        };
+
+        /**
+         * Remove Media Query
+         **/
+        function removeViaMediaQuery(javascript) {
+          if (!javascript) return $log.error('No javascript provided');
+          // Remove media query listener
+          if ($rootScope && angular.isDefined(mediaQuery)
+            && mediaQuery[javascript.href]
+            && angular.isDefined(mediaQueryListener)) {
+            mediaQuery[javascript.href].removeListener(mediaQueryListener[javascript.href]);
+          }
+        }
+
+        /**
+         * Is Media Query: checks for media settings, media queries to be ignore and match media support
+         **/
+        function isMediaQuery(javascript) {
+          if (!javascript) return $log.error('No javascript provided');
+          return !!(
+            // Check for media query setting
+          javascript.media
+            // Check for media queries to be ignored
+          && (mediaQueriesToIgnore.indexOf(javascript.media) === -1)
+            // Check for matchMedia support
+          && $window.matchMedia
+          );
+        }
+
+        /**
+         * Get From Route: returns array of js objects from single route
+         **/
+        $js.getFromRoute = function (route) {
+          if (!route) return $log.error('Get From Route: No route provided');
+          var js = null, result = [];
+          if (route.$$route && route.$$route.js) js = route.$$route.js;
+          else if (route.js) js = route.js;
+          // Adds route js rules to array
+          if (js) {
+            if (angular.isArray(js)) {
+              angular.forEach(js, function (jsItem) {
+                result.push(parse(jsItem));
+              });
+            } else result.push(parse(js));
+          }
+          return result;
+        };
+
+        /**
+         * Get From Routes: returns array of js objects from ng routes
+         **/
+        $js.getFromRoutes = function (routes) {
+          if (!routes) return $log.error('Get From Routes: No routes provided');
+          var result = [];
+          // Make array of all routes
+          angular.forEach(routes, function (route) {
+            var js = $js.getFromRoute(route);
+            if (js.length) result.push(js[0]);
+          });
+          return result;
+        };
+
+        /**
+         * Get From State: returns array of js objects from single state
+         **/
+        $js.getFromState = function (state) {
+          if (!state) return $log.error('Get From State: No state provided');
+          var result = [];
+          // State "views" notation
+          if (angular.isDefined(state.views)) {
+            angular.forEach(state.views, function (item) {
+              if (item.js) result.push(parse(item.js));
+            });
+          }
+          // State "children" notation
+          if (angular.isDefined(state.children)) {
+            angular.forEach(state.children, function (child) {
+              if (child.js) result.push(parse(child.js));
+              if (angular.isDefined(child.children)) {
+                angular.forEach(child.children, function (childChild) {
+                  if (childChild.js) result.push(parse(childChild.js));
+                });
+              }
+            });
+          }
+          // State default notation
+          if (angular.isDefined(state.js)) {
+            // For multiple javascripts
+            if (angular.isArray(state.js)) {
+              angular.forEach(state.js, function (itemCss) {
+                result.push(parse(itemCss));
+              });
+              // For single javascripts
+            } else result.push(parse(state.js));
+          }
+          return result;
+        };
+
+        /**
+         * Get From States: returns array of js objects from states
+         **/
+        $js.getFromStates = function (states) {
+          if (!states) return $log.error('Get From States: No states provided');
+          var result = [];
+          // Make array of all routes
+          angular.forEach(states, function (state) {
+            var js = $js.getFromState(state);
+            if (angular.isArray(js)) {
+              angular.forEach(js, function (jsItem) {
+                result.push(jsItem);
+              });
+            } else result.push(js);
+          });
+          return result;
+        };
+
+        /**
+         * Preload: preloads js via http request
+         **/
+        $js.preload = function (javascripts, callback) {
+          // If no javascripts provided, then preload all
+          if (!javascripts) {
+            javascripts = [];
+            // Add all javascripts from custom directives to array
+            if ($directives.length) Array.prototype.push.apply(javascripts, $directives);
+            // Add all javascripts from ngRoute to array
+            if ($injector.has('$route')) Array.prototype.push.apply(javascripts, $js.getFromRoutes($injector.get('$route').routes));
+            // Add all javascripts from UI Router to array
+            if ($injector.has('$state')) Array.prototype.push.apply(javascripts, $js.getFromStates($injector.get('$state').get()));
+          }
+          javascripts = filterBy(javascripts, 'preload');
+          angular.forEach(javascripts, function(javascript, index) {
+            // Preload via ajax request
+            $http.get(javascript.href)
+              .success(function (response) {
+                $log.debug('preload response: ' + response);
+                if (javascripts.length === (index + 1) && angular.isFunction(callback))
+                  callback(javascripts);
+              })
+              .error(function (response) {
+                $log.error('Incorrect path for ' + javascript.href);
+              });
+          });
+        };
+
+        /**
+         * Bind: binds js in scope with own scope create/destroy events
+         **/
+        $js.bind = function (js, $scope) {
+          if (!js || !$scope) return $log.error('No scope or javascripts provided');
+          var result = [];
+          // Adds route js rules to array
+          if (angular.isArray(js)) {
+            angular.forEach(js, function (jsItem) {
+              result.push(parse(jsItem));
+            });
+          } else result.push(parse(js));
+          $js.add(result);
+          $log.debug('$js.bind(): Added', result);
+          $scope.$on('$destroy', function () {
+            $js.remove(result);
+            $log.debug('$js.bind(): Removed', result);
+          });
+        };
+
+        /**
+         * Add: adds javascripts to scope
+         **/
+        $js.add = function (javascripts, callback) {
+          if (!javascripts) return $log.error('No javascripts provided');
+          if (!angular.isArray(javascripts)) javascripts = [javascripts];
+          angular.forEach(javascripts, function(javascript) {
+            javascript = parse(javascript);
+            // Avoid adding duplicate javascripts
+            if (javascript.href && !$filter('filter')($rootScope.javascripts, { href: javascript.href }).length) {
+              // Bust Cache feature
+              bustCache(javascript)
+              // Media Query add support check
+              if (isMediaQuery(javascript)) addViaMediaQuery(javascript);
+              else $rootScope.javascripts.push(javascript);
+              $log.debug('$js.add(): ' + javascript.href);
+            }
+          });
+          // Broadcasts custom event for js add
+          $rootScope.$broadcast('$jsAdd', javascripts, $rootScope.javascripts);
+        };
+
+        /**
+         * Remove: removes javascripts from scope
+         **/
+        $js.remove = function (javascripts, callback) {
+          if (!javascripts) return $log.error('No javascripts provided');
+          // Only proceed based on persist setting
+          javascripts = $filter('filter')(javascripts, function (javascript) {
+            return !javascript.persist;
+          });
+          angular.forEach(javascripts, function(javascript) {
+            // Get index of current item to be removed based on href
+            var index = $rootScope.javascripts.indexOf($filter('filter')($rootScope.javascripts, {
+              href: javascript.href
+            })[0]);
+            // Remove javascript from scope (if found)
+            if (index !== -1) $rootScope.javascripts.splice(index, 1);
+            // Remove javascript via media query
+            removeViaMediaQuery(javascript);
+            $log.debug('$js.remove(): ' + javascript.href);
+          });
+          // Broadcasts custom event for js remove
+          $rootScope.$broadcast('$jsRemove', javascripts, $rootScope.javascripts);
+        };
+
+        /**
+         * Remove All: removes all style tags from the DOM
+         **/
+        $js.removeAll = function () {
+          // Remove all javascripts from scope
+          if ($rootScope && $rootScope.hasOwnProperty('javascripts')) $rootScope.javascripts.length = 0;
+          $log.debug('all javascripts removed');
+        };
+
+        // Preload all javascripts
+        $js.preload();
+
+        return $js;
+
+      }];
+
+  }]);
+
   /**
    * Links filter - renders the stylesheets array in html format
    **/
@@ -413,7 +794,7 @@
       var result = '';
       angular.forEach(stylesheets, function (stylesheet) {
         result += '<link rel="' + stylesheet.rel + '" type="' + stylesheet.type + '" href="' + stylesheet.href + '"';
-        result += (stylesheet.media ? ' media="' + stylesheet.media + '"' : '') 
+        result += (stylesheet.media ? ' media="' + stylesheet.media + '"' : '')
         result += '>\n\n';
       });
       return result;
@@ -424,9 +805,10 @@
    * Run - auto instantiate the $css provider by injecting it in the run phase of this module
    **/
   angularCSS.run(['$css', function ($css) { } ]);
+  angularCSS.run(['$js', function ($js) { } ]);
 
   /**
-   * AngularJS hack - This way we can get and decorate all custom directives 
+   * AngularJS hack - This way we can get and decorate all custom directives
    * in order to broadcast a custom $directiveAdd event
    **/
   var $directives = [];
@@ -435,12 +817,13 @@
     var module = originalModule.apply(this, arguments);
     var originalDirective = module.directive;
     module.directive = function(directiveName, directiveFactory) {
-      var originalDirectiveFactory = angular.isFunction(directiveFactory) ? 
+      var originalDirectiveFactory = angular.isFunction(directiveFactory) ?
       directiveFactory : directiveFactory[directiveFactory.length - 1];
       try {
         var directive = angular.copy(originalDirectiveFactory)();
         directive.directiveName = directiveName;
         if (directive.hasOwnProperty('css')) $directives.push(directive);
+        if (directive.hasOwnProperty('js'))  $directives.push(directive);
       } catch (e) { }
       return originalDirective.apply(this, arguments);
     };
@@ -452,7 +835,7 @@
             var directive = $delegate[0];
             var compile = directive.compile;
             if (directive.css) $directive.css = directive.css;
-            directive.compile = function(tElement, tAttrs) { 
+            directive.compile = function(tElement, tAttrs) {
               var link = compile ? compile.apply(this, arguments): false;
               return function(scope, element, attrs) {
                 var linkArgs = arguments;

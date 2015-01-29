@@ -1,11 +1,7 @@
 {
   "name": "angular-css",
-  "main": "./angular-css.js",
-  "version": "1.0.6",
-  "homepage": "http://door3.github.io/angular-css",
-  "authors": [
-    "Alex Castillo <alex@castillo.io>"
-  ],
+  "main": "./angular-css-js.js",
+  "version": "oncast",
   "description": "CSS on-demand for AngularJS",
   "keywords": [
     "angularjs",
@@ -18,7 +14,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/door3/angular-css"
+    "url": "git@github.com:oncast-labs/angular-css.git"
   },
   "license": "MIT",
   "ignore": [
